@@ -4,11 +4,14 @@ import akka.actor.{ Actor, ActorRef, Props, PoisonPill }
 import akka.pattern.ask
 import akka.util.Timeout
 import com.typesafe.config._
+import org.json4s._
+import org.json4s.JsonDSL._
+import org.json4s.jackson.JsonMethods._
 import org.apache.tika.Tika
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-import edu.nyu.dlts.mdi.extract.AMQPSupport
+import edu.nyu.dlts.mdi.extract.{ CommonUtils, AMQPSupport }
 import edu.nyu.dlts.mdi.extract.Protocol._
 
 trait AMQPConfiguration { 
@@ -25,19 +28,50 @@ class Supervisor() extends Actor {
 
   consumer ! Listen
 
+  val publisherProps = Props(new Publisher(self))
+  val publisher = context.actorOf(publisherProps, "Publisher")
+
   def receive = {
+  	case pub: Publish => publisher ! pub
+  	case mer: MetadataExtractRequest => {
+  		val metadataExtractorProps = Props(new MetadataExtractor(self, tika))
+  		val metadataExtractor = context.actorOf(metadataExtractorProps, "Metadata Extractor")
+  		metadataExtractor ! mer
+  	}
 
   	case _ =>
   }
 }
 
+class MetadataExtractor(supervisor: ActorRef, tika: Tika) extends Actor with CommonUtils {
+	import java.io.FileInputStream
+	import org.apache.tika.metadata.Metadata
+	import org.apache.tika.parser.ParseContext
+	import org.xml.sax.helpers.DefaultHandler
+	import scala.collection.immutable.ListMap
+
+  def receive = {
+  	case mer: MetadataExtractRequest => {
+  		var response = createNewResponse(mer.id)
+  		val metadata = new Metadata
+  		val parser = tika.getParser
+  		parser.parse(new FileInputStream(mer.file), new DefaultHandler, metadata, new ParseContext)
+  		var map = Map.empty[String, String]
+  		metadata.names.foreach { i => map += (i -> metadata.get(i)) }
+  		map = ListMap(map.toSeq.sortBy(_._1):_*)
+  		response = response.copy(outcome = Some("success"), end_time = Some(now()), data = Some(render(map).asInstanceOf[JObject]))
+  		supervisor ! Publish(convertResponseToJson(response))
+  	}
+
+  	case _ =>
+  }
+}
 
 class Consumer(supervisor: ActorRef) extends Actor with AMQPSupport with AMQPConfiguration {
   
   import java.io.File
   import java.util.UUID
-  import org.json4s._
-  import org.json4s.jackson.JsonMethods._
+
 
   val consumer = getConsumer(conf.getString("rabbitmq.host"), conf.getString("rabbitmq.exchange_name"), conf.getString("rabbitmq.consume_key"))
 
@@ -58,6 +92,18 @@ class Consumer(supervisor: ActorRef) extends Actor with AMQPSupport with AMQPCon
       self ! Listen 
   	}
 
+  	case _ => 
+  }
+}
+
+class Publisher(supervisor: ActorRef) extends Actor with AMQPSupport with AMQPConfiguration {
+  val publisher = getPublisher(conf.getString("rabbitmq.host"))
+  implicit val formats = DefaultFormats
+
+  def receive = {	
+  	case p: Publish => {
+  		publisher.basicPublish(conf.getString("rabbitmq.exchange"), conf.getString("rabbitmq.publish_key"), null, p.message.getBytes())
+  	}
   	case _ => 
   }
 }

@@ -2,8 +2,6 @@ scalaVersion := "2.11.7"
 
 scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature")
 
-assemblyJarName in assembly := "mdi-fileidentify.jar"
-
 libraryDependencies ++= Seq(
   "com.typesafe.akka" % "akka-actor_2.11" % "2.3.12",
   "com.typesafe" % "config" % "1.2.1",
