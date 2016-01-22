@@ -73,7 +73,7 @@ class Consumer(supervisor: ActorRef) extends Actor with AMQPSupport with AMQPCon
   import java.util.UUID
 
 
-  val consumer = getConsumer(conf.getString("rabbitmq.host"), conf.getString("rabbitmq.exchange_name"), conf.getString("rabbitmq.consume_key"))
+  val consumer = getConsumer(conf.getString("rabbitmq.host"), conf.getString("rabbitmq.exchange_name"), conf.getString("rabbitmq.consume_request_key"))
 
   implicit val formats = DefaultFormats
 
@@ -102,7 +102,7 @@ class Publisher(supervisor: ActorRef) extends Actor with AMQPSupport with AMQPCo
 
   def receive = {	
   	case p: Publish => {
-  		publisher.basicPublish(conf.getString("rabbitmq.exchange"), conf.getString("rabbitmq.publish_key"), null, p.message.getBytes())
+  		publisher.basicPublish(conf.getString("rabbitmq.exchange"), conf.getString("rabbitmq.publish_result_key"), null, p.message.getBytes())
   	}
   	case _ => 
   }
