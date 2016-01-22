@@ -35,7 +35,7 @@ class Supervisor() extends Actor {
   	case pub: Publish => publisher ! pub
   	case mer: MetadataExtractRequest => {
   		val metadataExtractorProps = Props(new MetadataExtractor(self, tika))
-  		val metadataExtractor = context.actorOf(metadataExtractorProps, "Metadata Extractor")
+  		val metadataExtractor = context.actorOf(metadataExtractorProps, "MetadataExtractor")
   		metadataExtractor ! mer
   	}
 
@@ -102,7 +102,7 @@ class Publisher(supervisor: ActorRef) extends Actor with AMQPSupport with AMQPCo
 
   def receive = {	
   	case p: Publish => {
-  		publisher.basicPublish(conf.getString("rabbitmq.exchange"), conf.getString("rabbitmq.publish_result_key"), null, p.message.getBytes())
+  		publisher.basicPublish(conf.getString("rabbitmq.exchange_name"), conf.getString("rabbitmq.publish_result_key"), null, p.message.getBytes())
   	}
   	case _ => 
   }
