@@ -2,7 +2,7 @@ scalaVersion := "2.11.7"
 
 scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature")
 
-assemblyJarName in assembly := "mdi-fileidentify.jar"
+assemblyJarName in assembly := "mdi-extract.jar"
 
 mainClass in assembly := Some("edu.nyu.dlts.mdi.extract.Main")
 
